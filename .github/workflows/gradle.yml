@@ -40,7 +40,7 @@ jobs:
 
       - name: Tag for release (if on main)
         if: github.ref == 'refs/heads/main'
-        run: ./gradlew final -x test
+        run: ./gradlew final
 
       - name: Parse release version
         id: version_info
