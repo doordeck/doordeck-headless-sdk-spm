@@ -13,8 +13,8 @@ let package = Package(
    targets: [
       .binaryTarget(
          name: "DoordeckSDK",
-         url: "https://cdn.doordeck.com/xcframework/v0.68.0/DoordeckSDK.xcframework.zip",
-         checksum: "430b24cc29813ea14582a3e1c6cc701ed0196b0632daeaeae00e626dfa465483"
+         url: "https://cdn.doordeck.com/xcframework/v0.74.0/DoordeckSDK.xcframework.zip",
+         checksum: "ccd56314ea4fd7a92f6249e7ad19e36cfed4cf132745769a4de3bbcad91747ef"
       )
    ]
 )
