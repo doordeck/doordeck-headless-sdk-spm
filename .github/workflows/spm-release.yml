@@ -1,0 +1,51 @@
+name: SPM release
+on:
+  repository_dispatch:
+    types: [spm-release]
+
+jobs:
+  spm-release:
+    name: SPM release
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Git
+        run: |
+          git config --global user.name "Doordeck Development"
+          git config --global user.email "development@doordeck.com"
+
+      - name: Download SPM package
+        run: curl -OL https://cdn.doordeck.com/xcframework/v${{ github.event.client_payload.tag }}/DoordeckSDK.xcframework.zip
+
+      - name: Compute package checksum
+        id: checksum
+        run: echo checksum=$(swift package compute-checksum DoordeckSDK.xcframework.zip) >> "$GITHUB_OUTPUT"
+
+      - name: Update package swift
+        run: |
+          sed -E -i '' \
+            -e 's|(url: ")[^"]*(")|\1https://cdn.doordeck.com/xcframework/v${{ github.event.client_payload.tag }}/DoordeckSDK.xcframework.zip\2|' \
+            -e 's|(checksum: ")[^"]*(")|\1${{ steps.checksum.outputs.checksum }}\2|' \
+            "Package.swift"
+
+      - name: Create branch
+        run: |
+          git checkout -b checksum-update-v${{ github.event.client_payload.tag }}
+          git add Package.swift
+          git commit -m "Checksum and version update v${{ github.event.client_payload.tag }}"
+          git push origin checksum-update-v${{ github.event.client_payload.tag }}
+
+      - name: Create pull request
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base main \
+            --head checksum-update-v${{ github.event.client_payload.tag }} \
+            --title "Checksum and version update v${{ github.event.client_payload.tag }}" \
+            --body "Updating version to v${{ github.event.client_payload.tag }} with checksum ${{ steps.checksum.outputs.checksum }}"
