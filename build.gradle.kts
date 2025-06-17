@@ -1,3 +1,3 @@
 plugins {
-    id("com.netflix.nebula.release") version "19.0.8"
+    id("com.netflix.nebula.release") version "20.2.0"
 }
