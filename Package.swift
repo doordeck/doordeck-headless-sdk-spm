@@ -6,6 +6,7 @@ let package = Package(
    platforms: [
      .iOS(.v14),
      .macOS(.v11),
+     .watchOS(.v11),
    ],
    products: [
       .library(name: "DoordeckSDK", targets: ["DoordeckSDK"])
