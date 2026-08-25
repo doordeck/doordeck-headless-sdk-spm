@@ -1,0 +1,18 @@
+# .github/dependabot.yml
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/London"
+    reviewers:
+      - "team:mobile-developers"
+      - "team:backend-developers"
+    groups:
+      actions-all:
+        patterns: ["*"]
+        update-types: ["major", "minor", "patch"]
