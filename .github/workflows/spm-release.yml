@@ -18,8 +18,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+
+      - name: Validate payload
+        env:
+          TAG: ${{ github.event.client_payload.tag }}
+        run: |
+          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].+)?$ ]]; then
+            echo "::error::Invalid or missing tag in client_payload: '$TAG'"
+            exit 1
+          fi
 
       - name: Setup Git
         run: |
@@ -27,34 +34,44 @@ jobs:
           git config --global user.email "development@doordeck.com"
 
       - name: Download SPM package
-        run: curl -OL https://cdn.doordeck.com/xcframework/v${{ github.event.client_payload.tag }}/DoordeckSDK.xcframework.zip
+        env:
+          TAG: ${{ github.event.client_payload.tag }}
+        run: curl -fSOL https://cdn.doordeck.com/xcframework/v${TAG}/DoordeckSDK.xcframework.zip
 
       - name: Compute package checksum
         id: checksum
         run: echo checksum=$(swift package compute-checksum DoordeckSDK.xcframework.zip) >> "$GITHUB_OUTPUT"
 
       - name: Update package swift
+        env:
+          TAG: ${{ github.event.client_payload.tag }}
+          CHECKSUM: ${{ steps.checksum.outputs.checksum }}
         run: |
           sed -E -i '' \
-            -e 's|(url: ")[^"]*(")|\1https://cdn.doordeck.com/xcframework/v${{ github.event.client_payload.tag }}/DoordeckSDK.xcframework.zip\2|' \
-            -e 's|(checksum: ")[^"]*(")|\1${{ steps.checksum.outputs.checksum }}\2|' \
+            -e 's|(url: ")[^"]*(")|\1https://cdn.doordeck.com/xcframework/v${TAG}/DoordeckSDK.xcframework.zip\2|' \
+            -e 's|(checksum: ")[^"]*(")|\1${CHECKSUM}\2|' \
             "Package.swift"
-          git diff --exit-code Package.swift && \
-            { echo "::error::Package.swift unchanged - already at v${{ github.event.client_payload.tag }}?"; exit 1; } || true
+          if git diff --quiet Package.swift; then
+            echo "::error::Package.swift unchanged - already at v${TAG}?"
+            exit 1
+          fi
+          git diff Package.swift
 
       - name: Commit and tag
+        env:
+          TAG: ${{ github.event.client_payload.tag }}
         run: |
           git add Package.swift
-          git commit -m "Checksum and version update v${{ github.event.client_payload.tag }}"
-          git tag -a "v${{ github.event.client_payload.tag }}" \
-            -m "Release v${{ github.event.client_payload.tag }}"
-          git push --atomic origin main "v${{ github.event.client_payload.tag }}"
+          git commit -m "Checksum and version update v${TAG}"
+          git tag -a "v${TAG}" -m "Release v${TAG}"
+          git push --atomic origin main "v${TAG}"
 
       - name: Create GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.client_payload.tag }}
         run: |
-          gh release create "v${{ github.event.client_payload.tag }}" \
-            --title "Release v${{ github.event.client_payload.tag }}" \
+          gh release create "v${TAG}" \
+            --title "Release v${TAG}" \
             --verify-tag \
             --generate-notes
