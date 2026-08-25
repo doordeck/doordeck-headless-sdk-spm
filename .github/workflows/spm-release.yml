@@ -27,11 +27,18 @@ jobs:
           git config --global user.name "Doordeck Development"
           git config --global user.email "development@doordeck.com"
 
+      - name: Download SPM package
+        run: curl -OL https://cdn.doordeck.com/xcframework/v${{ github.event.client_payload.tag }}/DoordeckSDK.xcframework.zip
+
+      - name: Compute package checksum
+        id: checksum
+        run: echo checksum=$(swift package compute-checksum DoordeckSDK.xcframework.zip) >> "$GITHUB_OUTPUT"
+
       - name: Update package swift
         run: |
           sed -E -i '' \
             -e 's|(url: ")[^"]*(")|\1https://cdn.doordeck.com/xcframework/v${{ github.event.client_payload.tag }}/DoordeckSDK.xcframework.zip\2|' \
-            -e 's|(checksum: ")[^"]*(")|\1${{ github.event.client_payload.checksum }}\2|' \
+            -e 's|(checksum: ")[^"]*(")|\1${{ steps.checksum.outputs.checksum }}\2|' \
             "Package.swift"
           git diff --exit-code Package.swift && \
             { echo "::error::Package.swift unchanged - already at v${{ github.event.client_payload.tag }}?"; exit 1; } || true
