@@ -1,7 +1,12 @@
 name: SPM release
+
 on:
   repository_dispatch:
     types: [spm-release]
+
+concurrency:
+  group: spm-release
+  cancel-in-progress: false
 
 jobs:
   spm-release:
@@ -22,33 +27,28 @@ jobs:
           git config --global user.name "Doordeck Development"
           git config --global user.email "development@doordeck.com"
 
-      - name: Download SPM package
-        run: curl -OL https://cdn.doordeck.com/xcframework/v${{ github.event.client_payload.tag }}/DoordeckSDK.xcframework.zip
-
-      - name: Compute package checksum
-        id: checksum
-        run: echo checksum=$(swift package compute-checksum DoordeckSDK.xcframework.zip) >> "$GITHUB_OUTPUT"
-
       - name: Update package swift
         run: |
           sed -E -i '' \
             -e 's|(url: ")[^"]*(")|\1https://cdn.doordeck.com/xcframework/v${{ github.event.client_payload.tag }}/DoordeckSDK.xcframework.zip\2|' \
-            -e 's|(checksum: ")[^"]*(")|\1${{ steps.checksum.outputs.checksum }}\2|' \
+            -e 's|(checksum: ")[^"]*(")|\1${{ github.event.client_payload.checksum }}\2|' \
             "Package.swift"
+          git diff --exit-code Package.swift && \
+            { echo "::error::Package.swift unchanged - already at v${{ github.event.client_payload.tag }}?"; exit 1; } || true
 
-      - name: Create branch
+      - name: Commit and tag
         run: |
-          git checkout -b checksum-update-v${{ github.event.client_payload.tag }}
           git add Package.swift
           git commit -m "Checksum and version update v${{ github.event.client_payload.tag }}"
-          git push origin checksum-update-v${{ github.event.client_payload.tag }}
+          git tag -a "v${{ github.event.client_payload.tag }}" \
+            -m "Release v${{ github.event.client_payload.tag }}"
+          git push --atomic origin main "v${{ github.event.client_payload.tag }}"
 
-      - name: Create pull request
+      - name: Create GitHub release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr create \
-            --base main \
-            --head checksum-update-v${{ github.event.client_payload.tag }} \
-            --title "Checksum and version update v${{ github.event.client_payload.tag }}" \
-            --body "Updating version to v${{ github.event.client_payload.tag }} with checksum ${{ steps.checksum.outputs.checksum }}"
+          gh release create "v${{ github.event.client_payload.tag }}" \
+            --title "Release v${{ github.event.client_payload.tag }}" \
+            --verify-tag \
+            --generate-notes
