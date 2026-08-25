@@ -11,7 +11,7 @@ concurrency:
 jobs:
   spm-release:
     name: SPM release
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: write
 
@@ -23,7 +23,7 @@ jobs:
         env:
           TAG: ${{ github.event.client_payload.tag }}
         run: |
-          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].+)?$ ]]; then
+          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
             echo "::error::Invalid or missing tag in client_payload: '$TAG'"
             exit 1
           fi
@@ -40,16 +40,16 @@ jobs:
 
       - name: Compute package checksum
         id: checksum
-        run: echo checksum=$(swift package compute-checksum DoordeckSDK.xcframework.zip) >> "$GITHUB_OUTPUT"
+        run: echo "checksum=$(sha256sum DoordeckSDK.xcframework.zip | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Update package swift
         env:
           TAG: ${{ github.event.client_payload.tag }}
           CHECKSUM: ${{ steps.checksum.outputs.checksum }}
         run: |
-          sed -E -i '' \
-            -e 's|(url: ")[^"]*(")|\1https://cdn.doordeck.com/xcframework/v${TAG}/DoordeckSDK.xcframework.zip\2|' \
-            -e 's|(checksum: ")[^"]*(")|\1${CHECKSUM}\2|' \
+          sed -E -i \
+            -e "s|(url: \")[^\"]*(\")|\1https://cdn.doordeck.com/xcframework/v${TAG}/DoordeckSDK.xcframework.zip\2|" \
+            -e "s|(checksum: \")[^\"]*(\")|\1${CHECKSUM}\2|" \
             "Package.swift"
           if git diff --quiet Package.swift; then
             echo "::error::Package.swift unchanged - already at v${TAG}?"
