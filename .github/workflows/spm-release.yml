@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ssh-key: ${{ secrets.SPM_RELEASE_DEPLOY_KEY }}
 
       - name: Validate payload
         env:
